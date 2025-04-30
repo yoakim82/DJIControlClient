@@ -1,3 +1,4 @@
+import json
 import math
 import sys
 import threading
@@ -8,8 +9,14 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QHB
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QTimer, QUrl
 from drone_route import DroneRoute  # Assumes this is your class
-
 from PyQt5.QtWebChannel import QWebChannel
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QObject
+
+class MapBridge(QObject):
+    updateMapData = pyqtSignal(str)
+
+    def send_data(self, data):
+        self.updateMapData.emit(data)
 
 
 class DroneRouteMapViewer(QMainWindow):
@@ -33,6 +40,11 @@ class DroneRouteMapViewer(QMainWindow):
         self.abort_button = QPushButton("Abort")
         self.plan_button = QPushButton("Enter Route Plan Mode")
         self.save_plan_button = QPushButton("Save Planned Route")
+
+        self.bridge = MapBridge()
+        self.channel = QWebChannel()
+        self.channel.registerObject('bridge', self.bridge)
+        self.web_view.page().setWebChannel(self.channel)
 
 
         # Button states
@@ -68,9 +80,10 @@ class DroneRouteMapViewer(QMainWindow):
         self.save_plan_button.clicked.connect(self.save_planned_route)
 
         # Refresh the map every second to reflect actionPoses dynamically
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_map)
-        self.timer.start(1000)
+        #self.timer = QTimer()
+        #self.timer.timeout.connect(self.update_map)
+        #self.timer.start(500)
+        QTimer.singleShot(1000, self.update_map)
 
         #self.start_route_thread()  # 🔥 new: start route execution in parallel
 
@@ -261,14 +274,22 @@ class DroneRouteMapViewer(QMainWindow):
         # Save and reload
         fmap.save(self.map_file)
         self.web_view.load(QUrl.fromLocalFile(os.path.abspath(self.map_file)))
+        # self.bridge.send_data(json.dumps({
+        #     "waypoints": [...],
+        #     "actionPoses": [...],
+        #     "currentPose": {...}
+        # }))
 
 
 if __name__ == "__main__":
     # Replace with real initialization
 
-    testRoute = f"test_route_wgs2.json"
+    testRoute = f"test_route_simple_hagby.json"
 
-    drone = DroneRoute("127.0.0.1", 5000, testRoute)
+    route = "route.json"
+
+
+    drone = DroneRoute("127.0.0.1", 5000, route)
     app = QApplication(sys.argv)
     viewer = DroneRouteMapViewer(drone)
     viewer.show()

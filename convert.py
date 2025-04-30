@@ -1,3 +1,4 @@
+import csv
 import json
 import math
 import sys
@@ -40,18 +41,69 @@ def convert_file(input_path, origin_lat, origin_lon, origin_alt):
                 "altitude": alt
             }
 
-    output_path = input_path.with_name(input_path.stem + "_wgs2.json")
+    output_path = input_path.with_name(input_path.stem + "_wgs_hagby.json")
     with open(output_path, "w") as f:
         json.dump(data, f, indent=2)
 
     print(f"Converted file saved to {output_path}")
 
-if __name__ == "__main__":
-    # if len(sys.argv) != 5:
-    #     print("Usage: python convert.py <input_file.json> <origin_lat> <origin_lon> <origin_alt>")
-    #     sys.exit(1)
+
+def convert_csv_to_route_json(csv_path, drone_name="static.prop.drone_mavic_air"):
+    poses = []
+    with open(csv_path, newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for i, row in enumerate(reader):
+            lat = float(row["Latitude"])
+            lon = float(row["Longitude"])
+            yaw = float(row["Yaw"])
+            pitch = float(row.get("Pitch", 0))  # Default pitch to 0 if missing
+            alt = float(row.get("Height", 10.0))
+
+            pose = {
+                "time_arrive": 0.0,
+                "time_depart": 0.0,
+                "pos": {
+                    "longitude": lon,
+                    "latitude": lat,
+                    "altitude": alt
+                },
+                "rot": {
+                    "roll": 0.0,
+                    "pitch": pitch,
+                    "yaw": yaw
+                }
+            }
+            poses.append(pose)
+
+    route_json = [{
+        "name": drone_name,
+        "speed": 10,
+        "turn_speed": 1.5707963,
+        "flight_time": 600,
+        "poses": poses
+    }]
+
+    output_path = Path(csv_path).with_suffix(".json")
+    with open(output_path, "w") as f:
+        json.dump(route_json, f, indent=2)
+
+    return output_path
+
+
+def conv_to_wgs84():
+    # convert from m to wgs84
     file = "test_route.json"
-    lat = 57.76528976764431
-    lon = 16.676588299360205
+    # granso_origin
+    # lat = 57.76528976764431
+    # lon = 16.676588299360205
+    (lat, lon) = (59.46731557248635, 18.019252923720437)
     alt = 1.0
     convert_file(input_path=file, origin_lat=lat, origin_lon=lon, origin_alt=alt)
+
+
+if __name__ == "__main__":
+
+    #conv_to_wgs84()
+
+    convert_csv_to_route_json(csv_path="route.csv")
+

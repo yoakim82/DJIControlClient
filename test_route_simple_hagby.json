@@ -1,0 +1,178 @@
+[
+  {
+    "name": "static.prop.drone_450",
+    "speed": 10,
+    "turn_speed": 1.5707963,
+    "flight_time": 600,
+    "poses": [
+      {
+        "time_arrive": 0.0,
+        "time_depart": 0.0,
+        "pos": {
+          "longitude": 18.02402713221095,
+          "latitude": 59.46568064614787,
+          "altitude": 3.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": 0,
+          "yaw": 0
+        }
+      },
+      {
+        "time_arrive": 4.5,
+        "time_depart": 5.0,
+        "pos": {
+          "longitude": 18.023928589011255,
+          "latitude": 59.46540989515972,
+          "altitude": 22.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 270
+        }
+      },
+      {
+        "time_arrive": 5.55,
+        "time_depart": 6.05,
+        "pos": {
+          "longitude": 18.02383004581156,
+          "latitude": 59.46540989515972,
+          "altitude": 22.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 270
+        }
+      },
+      {
+        "time_arrive": 6.69,
+        "time_depart": 7.19,
+        "pos": {
+          "longitude": 18.02383004581156,
+          "latitude": 59.46540989515972,
+          "altitude": 22.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 225
+        }
+      },
+      {
+        "time_arrive": 7.83,
+        "time_depart": 8.33,
+        "pos": {
+          "longitude": 18.02383004581156,
+          "latitude": 59.46540989515972,
+          "altitude": 22.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 180
+        }
+      },
+      {
+        "time_arrive": 8.88,
+        "time_depart": 9.38,
+        "pos": {
+          "longitude": 18.023928589011255,
+          "latitude": 59.46540989515972,
+          "altitude": 22.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 180
+        }
+      },
+      {
+        "time_arrive": 9.93,
+        "time_depart": 10.43,
+        "pos": {
+          "longitude": 18.02402713221095,
+          "latitude": 59.46540989515972,
+          "altitude": 22.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 180
+        }
+      },
+      {
+        "time_arrive": 10.98,
+        "time_depart": 11.48,
+        "pos": {
+          "longitude": 18.024125675410644,
+          "latitude": 59.46540989515972,
+          "altitude": 22.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 180
+        }
+      },
+      {
+        "time_arrive": 12.12,
+        "time_depart": 12.62,
+        "pos": {
+          "longitude": 18.024125675410644,
+          "latitude": 59.46540989515972,
+          "altitude": 22.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 135
+        }
+      },
+      {
+        "time_arrive": 13.17,
+        "time_depart": 13.67,
+        "pos": {
+          "longitude": 18.02422421861034,
+          "latitude": 59.46540989515972,
+          "altitude": 22.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 135
+        }
+      },
+      {
+        "time_arrive": 14.31,
+        "time_depart": 14.81,
+        "pos": {
+          "longitude": 18.02422421861034,
+          "latitude": 59.46540989515972,
+          "altitude": 22.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 90
+        }
+      },
+      {
+        "time_arrive": 15.510000000000002,
+        "time_depart": 16.01,
+        "pos": {
+          "longitude": 18.02422421861034,
+          "latitude": 59.46540989515972,
+          "altitude": 15.0
+        },
+        "rot": {
+          "roll": 0.0,
+          "pitch": -30,
+          "yaw": 90
+        }
+      }
+    ]
+  }
+]

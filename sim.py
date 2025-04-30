@@ -1,3 +1,4 @@
+import threading
 import time
 
 from flask import Flask, jsonify, Response, render_template_string
@@ -6,16 +7,26 @@ import io
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+from DJIControlClient import VelocityProfile
+from routes import Velocity
+
 app = Flask(__name__)
 
 # Simulated state
 state = {
-    "latitude": 57.763570,
-    "longitude": 16.680859,
+    #"latitude": 57.763570, #gränsö
+    #"longitude": 16.680859,
     "altitude": 1.0,
+    "latitude": 59.46536932843077, #hagby
+    "longitude": 18.02518065894246,
     "yaw": 0.0,  # heading in degrees
     "control_mode": "POSITION",
-    "speed": 1.0
+    "speed": 1.0,
+    "angular_speed":30.0,
+    "velocity_control_active": False,
+    "vel": Velocity(0.0,0.0,0.0),
+    "yawRate": 0.0,
+    "velocity_profile": VelocityProfile.CONSTANT
 }
 
 # Constants for converting degrees to meters
@@ -48,6 +59,57 @@ def set_max_speed(speed):
     state["speed"] = speed
     return jsonify({"completed": True})
 
+@app.route('/takeoff', methods=['GET'])
+def takeoff():
+    return jsonify({"completed": True})
+
+@app.route('/land', methods=['GET'])
+def land():
+    return jsonify({"completed": True})
+
+@app.route('/confirmLanding', methods=['GET'])
+def confirm_landing():
+    return jsonify({"completed": True})
+
+@app.route('/setMaxAngularSpeed/<speed>', methods=['GET'])
+def set_max_angular_speed(speed):
+    state["angular_speed"] = speed
+    return jsonify({"completed": True})
+
+@app.route('/startVelocityControl', methods=['GET'])
+def start_velocity_control():
+    state["velocity_control_active"] = True
+    max_duration = 20.0
+    threading.Thread(target=velocity_control_loop, args=(max_duration,)).start()
+    return jsonify({"completed": True})
+
+
+@app.route('/stopVelocityControl', methods=['GET'])
+def stop_velocity_control():
+    state["velocity_control_active"] = False
+    return jsonify({"completed": True})
+
+
+@app.route('/setVelocityProfile/<profilename>', methods=['GET'])
+def set_velocity_profile(profilename):
+    if profilename == 'CONSTANT':
+        state["velocity_profile"] = VelocityProfile.CONSTANT
+    elif profilename == 'TRAPEZOIDAL':
+        state["velocity_profile"] = VelocityProfile.TRAPEZOIDAL
+    elif profilename == 'S_CURVE':
+        state["velocity_profile"] = VelocityProfile.S_CURVE
+
+    return jsonify({"completed": True})
+
+
+@app.route('/setVelocityCommand/<xVel>/<yVel>/<zVel>/<yawRate>', methods=['GET'])
+def set_velocity_command(xVel, yVel, zVel, yawRate):
+    # Velocity vector is expressed in NED system
+    state["vel"] =  Velocity(x=float(xVel), y=float(yVel), z=float(zVel))
+    print(state["vel"])
+    state["yawRate"] = float(yawRate)
+
+    return jsonify({"completed": True})
 
 @app.route('/getHeading', methods=['GET'])
 def get_heading():
@@ -59,7 +121,7 @@ def get_altitude():
 
 @app.route('/getCurrentPos', methods=['GET'])
 def get_current_pos():
-    print(f'state latitude: {state["latitude"]}, longitude: {state["longitude"]}, alt: {state["altitude"]}, yaw: {state["yaw"]}')
+    #print(f'state latitude: {state["latitude"]}, longitude: {state["longitude"]}, alt: {state["altitude"]}, yaw: {state["yaw"]}')
     return jsonify({
         "latitude": state["latitude"],
         "longitude": state["longitude"],
@@ -74,7 +136,6 @@ def set_current_pos(lat, lon, alt, yaw):
         state["longitude"] = float(lon)
         state["altitude"] = float(alt)
         state["yaw"] = float(yaw)
-        position_history.append((state["latitude"], state["longitude"], state["altitude"]))
         return jsonify({"completed": True})
     except Exception as e:
         return jsonify({"completed": False, "errorDescription": str(e)})
@@ -89,19 +150,46 @@ def pitch_gimbal(angle):
 
 
 # --- Movement helpers ---
-def move(dx=0.0, dy=0.0, dz=0.0):
+def move(dx, dy, dz):
+    lat = state["latitude"]
+    deg_lat, deg_lon = meters_to_degrees(lat, dx, dy)
+    state["latitude"] += deg_lat
+    state["longitude"] += deg_lon
+    state["altitude"] += dz
+
+
+def move_return(dx=0.0, dy=0.0, dz=0.0):
     try:
-        time_to_traverse = math.sqrt(dx**2 + dy**2 + dz**2) / state["speed"]
-        lat = state["latitude"]
-        deg_lat, deg_lon = meters_to_degrees(lat, dx, dy)
-        # time.sleep(time_to_traverse)
-        state["latitude"] += deg_lat
-        state["longitude"] += deg_lon
-        state["altitude"] += dz
+        move(dx, dy, dz)
         position_history.append((state["latitude"], state["longitude"], state["altitude"]))
         return jsonify({"completed": True})
     except Exception as e:
         return jsonify({"completed": False, "errorDescription": str(e)})
+
+
+def velocity_control_loop(max_duration=20.0):
+    start_time = time.time()
+    update_interval = 1.0  # seconds
+
+    i = 0
+
+    while time.time() - start_time < max_duration and state["velocity_control_active"]:
+        dy = state["vel"].x * update_interval
+        dx = state["vel"].y * update_interval
+        dz = -state["vel"].z * update_interval
+
+        i += 1
+        print(f"control loop: {i}, dx: {dx}, dy: {dy}, dz: {dz}")
+        # (dx, dy, dz) is the movement in m along velocity vector during time interval update_interval
+
+        # Reuse movement logic
+        move(dx, dy, dz)
+        time.sleep(update_interval)
+
+    # Stop velocities after finishing
+    state["velocity_control_active"] = False
+    state["vel"] = Velocity(0.0, 0.0, 0.0)
+    print(f"control loop: {i}")
 
 # def move(dx=0.0, dy=0.0, dz=0.0):
 #     try:
@@ -141,36 +229,36 @@ def move_forward(dist):
     yaw_rad = math.radians(state["yaw"])
     dy = dist * math.cos(yaw_rad)
     dx = dist * math.sin(yaw_rad)
-    return move(dx=dx, dy=dy)
+    return move_return(dx=dx, dy=dy)
 
 @app.route('/moveBackward/<float:dist>', methods=['GET'])
 def move_backward(dist):
     yaw_rad = math.radians(state["yaw"])
     dy = -dist * math.cos(yaw_rad)
     dx = -dist * math.sin(yaw_rad)
-    return move(dx=dx, dy=dy)
+    return move_return(dx=dx, dy=dy)
 
 @app.route('/moveLeft/<float:dist>', methods=['GET'])
 def move_left(dist):
     yaw_rad = math.radians(state["yaw"] - 90)
     dy = dist * math.cos(yaw_rad)
     dx = dist * math.sin(yaw_rad)
-    return move(dx=dx, dy=dy)
+    return move_return(dx=dx, dy=dy)
 
 @app.route('/moveRight/<float:dist>', methods=['GET'])
 def move_right(dist):
     yaw_rad = math.radians(state["yaw"] + 90)
     dy = dist * math.cos(yaw_rad)
     dx = dist * math.sin(yaw_rad)
-    return move(dx=dx, dy=dy)
+    return move_return(dx=dx, dy=dy)
 
 @app.route('/moveUp/<float:dist>', methods=['GET'])
 def move_up(dist):
-    return move(dz=dist)
+    return move_return(dz=dist)
 
 @app.route('/moveDown/<float:dist>', methods=['GET'])
 def move_down(dist):
-    return move(dz=-dist)
+    return move_return(dz=-dist)
 
 @app.route('/rotateClockwise/<float:angle>', methods=['GET'])
 def rotate_clockwise(angle):

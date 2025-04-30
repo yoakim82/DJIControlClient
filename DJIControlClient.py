@@ -131,6 +131,7 @@ class DJIControlClient:
         return self.makeReqAndReturnJSON('/startVelocityControl')
 
     def setVelocityCommand(self, xVel: float, yVel: float, zVel: float, yawRate: float) -> Dict[str, Any]:
+        print(f"xVel: {xVel:.2f}, yVel: {yVel:.2f}, zVel: {zVel:.2f}")
         return self.makeReqAndReturnJSON(f'/setVelocityCommand/{xVel}/{yVel}/{zVel}/{yawRate}')
 
     def stopVelocityControl(self) -> Dict[str, Any]:
@@ -214,10 +215,26 @@ class DJIControlClient:
         else:
             return altitude
 
+
+    def getPosition(self) -> Dict[str, Any]:
+        pos = self.makeReqAndReturnJSON('/getCurrentPos')
+        if 'state' in pos:
+            return pos['state']
+        else:
+            return pos
+
+    def setCurrentPos(self, lat: float, lon: float, alt: float, yaw: float) -> Dict[str, Any]:
+        return self.makeReqAndReturnJSON(f'/setCurrentPos/{lat}/{lon}/{alt}/{yaw}')
+
+
     # Camera Actions
 
     def captureShot(self) -> Dict[str, Any]:
         return self.makeReqAndReturnJSON('/captureShot')
+
+    def capturePhoto(self) -> Dict[str, Any]:
+        return self.makeReqAndReturnJSON('/capturePhoto')
+
 
     def startVideoRecording(self) -> Dict[str, Any]:
         return self.makeReqAndReturnJSON('/startVideoRecording')

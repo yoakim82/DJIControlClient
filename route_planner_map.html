@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Route Planner Map</title>
+    <meta charset="utf-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+    <style>
+        /* Sidebar and map styling */
+            html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        }
+
+        #map {
+            height: calc(100vh - 100px);
+            width: calc(100% - 280px);  /* Adjust to fit beside sidebar */
+            float: left;
+        }
+
+        #sidebar {
+            width: 280px;
+            height: 100vh;
+            float: left;
+            overflow-y: auto;
+            background-color: #f0f0f0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        #waypoint-list { list-style-type: none; padding: 0; }
+        #waypoint-list li { margin-bottom: 10px; }
+        .waypoint-info { display: flex; justify-content: space-between; }
+        .waypoint-info input { width: 60px; }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+    <h1>Route Planner Map</h1>
+    <div id="sidebar">
+        <h3>Waypoints</h3>
+        <ul id="waypoint-list">
+            <!-- Waypoints will be added dynamically -->
+        </ul>
+    </div>
+    <div id="map"></div>
+    <script src="qrc:/qtwebchannel/qwebchannel.js"></script> <!-- Ensure this path is correct in PyQt -->
+
+    <!script src="https://unpkg.com/leaflet/dist/leaflet.js"><!/script>
+
+    <script>
+        // Initialize the map
+        var bridge = null;
+
+        var map = L.map('map').setView([57.76359, 16.68141], 13);  // Initial position (Gränsö)
+
+        // Set the map layer (use OpenStreetMap tile layer here)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        var markers = [];
+        var routeLine = [];
+        var waypoints = [];  // Array to store waypoints with multiplicity
+
+        // Add click listener to the map
+        map.on('click', function(e) {
+            console.log("Map clicked at:", e.latlng);  // Log click location to browser console
+            var lat = e.latlng.lat;
+            var lon = e.latlng.lng;
+
+            // Default multiplicity and pitch angle
+            var multiplicity = 8;  // Default multiplicity
+            var pitch = 30;  // Default pitch angle
+
+            var height = 10;  // Default height in meters
+
+            // Store waypoint with multiplicity, pitch, and yaw
+            var waypoint = {
+                lat: lat,
+                lon: lon,
+                multiplicity: multiplicity,
+                pitch: pitch,
+                height: height
+            };
+
+            // Store the waypoint
+            waypoints.push(waypoint);
+
+
+            // Check if QWebChannel is available (only when running inside PyQt)
+            if (typeof QWebChannel !== 'undefined') {
+                var bridge = new QWebChannel(qt.webChannelTransport, function(channel) {
+                    bridge = channel.objects.bridge;
+                    // Send the clicked location to Python (via the bridge)
+                    bridge.map_clicked(e.latlng.lat, e.latlng.lng);
+                });
+            }
+            // Add marker to the map
+            var marker = L.marker([lat, lon]).addTo(map);
+
+            // Store the marker so we can reference it later (e.g., for removal or editing)
+            markers.push(marker);
+
+            routeLine.push([lat, lon]);  // Add coordinates to the routeLine array
+
+
+            // Create waypoint entry in sidebar
+            var li = document.createElement('li');
+            li.innerHTML = `
+                <div class="waypoint-info">
+                    <span>WP ${waypoints.length}</span>
+                    <input type="number" class="multiplicity" value="${multiplicity}" min="1" />
+                    <input type="number" class="pitch" value="${pitch}" min="0" max="90" />
+                    <button onclick="removeWaypoint(${waypoints.length - 1})">Remove</button>
+                </div>
+            `;
+            document.getElementById('waypoint-list').appendChild(li);
+            updateSidebar();
+
+            // Make the marker draggable for editing
+            marker.on('dragend', function(e) {
+                var newLatLng = e.target.getLatLng();
+                var newLat = newLatLng.lat;
+                var newLon = newLatLng.lng;
+
+                // Update waypoint coordinates
+                waypoint.lat = newLat;
+                waypoint.lon = newLon;
+
+                // Recalculate the polyline after move
+                routeLine = waypoints.map(function(wp) { return [wp.lat, wp.lon]; });
+                L.polyline(routeLine, {color: 'blue'}).addTo(map);
+            });
+
+            // If more than 1 waypoint, draw a line
+            if (routeLine.length > 1) {
+                // Draw a polyline connecting the waypoints
+                L.polyline(routeLine, {color: 'blue'}).addTo(map);
+            }
+        });
+
+        // Clear button functionality
+        function clearRoute() {
+            // Remove all markers and polyline
+            markers.forEach(function(marker) {
+                map.removeLayer(marker);
+            });
+            markers = [];
+            routeLine = [];
+            waypoints = [];
+        }
+                // Function to remove a waypoint and update the map
+
+        function updateWaypoint(index, property, value) {
+            if (property === 'multiplicity') {
+                waypoints[index].multiplicity = parseInt(value, 10);
+            } else if (property === 'pitch') {
+                waypoints[index].pitch = parseInt(value, 10);
+            } else if (property === 'height') {
+                waypoints[index].height = parseInt(value, 10);
+            }
+        }
+
+        function removeWaypoint(index) {
+
+            // Remove the marker from the map
+            map.removeLayer(markers[index]);
+
+            // Remove from arrays
+            markers.splice(index, 1);
+            waypoints.splice(index, 1);
+
+
+
+            // Rebuild the route line and sidebar
+            updateRouteLine();
+            updateSidebar();
+        }
+
+        // Function to update the route line on the map after a change
+        function updateRouteLine() {
+            routeLine = waypoints.map(function(wp) { return [wp.lat, wp.lon]; });
+            // Clear the existing polyline and draw a new one
+            map.eachLayer(function(layer) {
+                if (layer instanceof L.Polyline) {
+                    map.removeLayer(layer);
+                }
+            });
+            if (routeLine.length > 1) {
+                L.polyline(routeLine, {color: 'blue'}).addTo(map);
+            }
+        }
+
+        // Function to update the sidebar after a waypoint change
+        function removeWaypoint(index) {
+            // Remove marker from map
+            if (markers[index]) {
+                map.removeLayer(markers[index]);
+            }
+
+            // Remove from arrays
+            waypoints.splice(index, 1);
+            markers.splice(index, 1);
+
+            // Notify Python about removal
+            console.log("remove button:", index);
+            // Check if QWebChannel is available (only when running inside PyQt)
+            if (typeof QWebChannel !== 'undefined') {
+                var bridge = new QWebChannel(qt.webChannelTransport, function(channel) {
+                    bridge = channel.objects.bridge;
+                    // Send the clicked location to Python (via the bridge)
+                    bridge.wp_removed(index);
+                });
+            }
+
+            // Redraw the route line and update sidebar
+            updateRouteLine();
+            updateSidebar();
+        }
+
+    function updateSidebar() {
+        const waypointList = document.getElementById('waypoint-list');
+        waypointList.innerHTML = ''; // Clear current list
+
+        waypoints.forEach((wp, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div class="waypoint-info">
+                    <span>WP ${index + 1}</span>
+                    <input type="number" class="height" value="${wp.height}" min="0" step="1" onchange="updateWaypoint(${index}, 'height', this.value)" />
+                    <input type="number" class="multiplicity" value="${wp.multiplicity}" min="1" onchange="updateWaypoint(${index}, 'multiplicity', this.value)" />
+                    <input type="number" class="pitch" value="${wp.pitch}" min="0" max="90" onchange="updateWaypoint(${index}, 'pitch', this.value)" />
+                    <button onclick="removeWaypoint(${index})">Remove</button>
+                </div>
+            `;
+            waypointList.appendChild(li);
+        });
+    }
+
+        // Function to save the route to CSV
+        function saveRoute() {
+                    var csvContent = "Latitude,Longitude,Yaw,Pitch,Height\n";
+        waypoints.forEach(function(wp) {
+            var yawStep = 360 / wp.multiplicity;
+            for (var i = 0; i < wp.multiplicity; i++) {
+                var yaw = i * yawStep;
+                csvContent += `${wp.lat},${wp.lon},${yaw},${wp.pitch},${wp.height}\n`;
+            }
+        });
+
+            // Create a downloadable link for the CSV file
+            var blob = new Blob([csvContent], {type: 'text/csv'});
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'route.csv';
+            link.click();
+        }
+        console.log("Map center:", map.getCenter().lat,  map.getCenter().lng);
+    </script>
+<button onclick="clearRoute()">Clear Route</button>
+<button onclick="saveRoute()">Save Route</button>
+</body>
+</html>
